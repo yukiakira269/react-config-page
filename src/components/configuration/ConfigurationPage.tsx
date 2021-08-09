@@ -12,14 +12,11 @@ function ConfigurationPage() {
   const [processor, setProcessor] = useState('');
   const [processorList, setProcessorList] = useState([]);
   const pros: any = [];
-  const DB: string =
-    "https://processors-be58a-default-rtdb.firebaseio.com/processors.json";
-  /** Handling auto-rendering when the user switches tabs, provided that the
-   * user stays in the same session
-   */
+  const DB: string = "https://processors-be58a-default-rtdb.firebaseio.com/processors.json";
+  /** Render previously auto-saved inputs */
   //Loading all form's inputs
   useEffect(() => {
-    //Fetch the processors from the API
+    //Fetch the processors list from Firebase API
     fetch(DB)
       .then((response) => { return response.json() })
       .then((data: any) => {
@@ -70,16 +67,14 @@ function ConfigurationPage() {
     // }
   }
 
-  //Handle autosaving
+  /** Handle autosaving (currently using sessionStorage) */
   const autosave = debounce(saveData, 500);
-
-  //Save data in session => Swicth to db later
+  //Save data in sessionStorage => May swicth to db/API/store later
   function saveData() {
     INPUTS.forEach((inputElement) => {
       sessionStorage.setItem(inputElement.id, inputElement.value);
     });
   }
-
   //500ms debounce to avoid bottleneck
   function debounce(func: Function, wait: number) {
     var timeout: any;
@@ -113,9 +108,10 @@ function ConfigurationPage() {
   }
   //Sending message back to the parent whenever the systemName changes
   useEffect(() => {
-    window.parent.postMessage(systemName, 'http://localhost:8000');
+    //window.parent.postMessage(systemName, 'http://localhost:8000');
   }, [systemName]);
 
+  /** Loading animation (waiting for the processors list to load from Firebase) */
   if (isLoading === true) {
     return <div className="col offset-md-6 mt-5">
       <Spinner animation="border" role="status">

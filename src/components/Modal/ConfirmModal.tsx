@@ -17,6 +17,7 @@ function ProcessorConfirmModal(props: any) {
     function handleClose() {
         setShow(false);
     }
+    //Handles cancellation
     function handleCancel() {
         handleClose();
         triggerInput("processor", "");
