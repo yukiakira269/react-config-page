@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button, Modal } from "react-bootstrap";
 import styles from './ConfirmModal.module.css';
 import './ConfirmModal.module.css';
-import { triggerInput } from "../configuration/ConfigurationActions";
+import { triggerInput } from "../configuration/ConfigurationPage.utils";
 
 
 function ProcessorConfirmModal(props: any) {
@@ -17,7 +17,6 @@ function ProcessorConfirmModal(props: any) {
     function handleClose() {
         setShow(false);
     }
-    //Handles cancellation
     function handleCancel() {
         handleClose();
         triggerInput("processor", "");
@@ -48,14 +47,16 @@ function ProcessorConfirmModal(props: any) {
                         </svg>
                     </div>
                     <div className="col offset-xs-2 col-md-9">
-                        Once you leave the current tab the selected
-                        <span className="fw-bold"> {props.processorName} </span>
-                        will be save and cannot be changed.
-                        <br />
-                        <br />
-                        Please confirm that  you want to continue with
-                        <span className="fw-bold"> {props.processorName} </span>
-                        processor
+                        <div>
+                            Once you leave the current tab the selected
+                            <span className="fw-bold"> {props.processorName} </span>
+                            will be save and cannot be changed.
+                        </div>
+                        <div>
+                            Please confirm that  you want to continue with
+                            <span className="fw-bold"> {props.processorName} </span>
+                            processor
+                        </div>
                     </div>
                 </div>
                 <div className={styles.modalButton}>

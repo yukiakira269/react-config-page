@@ -1,48 +1,39 @@
 
 import React, { useEffect, useState } from 'react';
-import ProcessorConfirmModal from '../Modal/ConfirmModal';
+import ProcessorConfirmModal from '../modal/ConfirmModal';
 import styles from './ConfigurationPage.module.css';
 import { render } from '@testing-library/react';
 import { Spinner } from 'react-bootstrap';
-import { triggerInput, loadInputs, INPUTS } from './ConfigurationActions';
+import { triggerInput, loadInputs, INPUTS, debounce, saveData, fetchProcessor } from './ConfigurationPage.utils';
+import { DB } from './ConfigurationPage.const';
 
 function ConfigurationPage() {
   const [isLoading, setLoading] = useState(true);
   const [systemName, setSystemName] = useState('');
   const [processor, setProcessor] = useState('');
   const [processorList, setProcessorList] = useState([]);
-  const pros: any = [];
-  const DB: string = "https://processors-be58a-default-rtdb.firebaseio.com/processors.json";
-  /** Render previously auto-saved inputs */
+  const processorsArray: any = [];
+
+  /** Handling auto-rendering when the user switches tabs, provided that the
+   * user stays in the same session
+   */
   //Loading all form's inputs
   useEffect(() => {
-    //Fetch the processors list from Firebase API
-    fetch(DB)
-      .then((response) => { return response.json() })
-      .then((data: any) => {
-        for (var i in data) {
-          pros.push(
-            <option key={i} value={data[i]}>
-              {data[i]}
-            </option>
-          );
-        }
-        setProcessorList(pros);
-      })
-      //Loading auto-saved inputs
+    //Loading auto-saved inputs
+    fetchProcessor(processorsArray)
       .then(() => {
         setLoading(false);
+        setProcessorList(processorsArray);
         loadInputs();
         if (sessionStorage.length !== 0) {
           INPUTS.forEach((inputElement) => {
             var inputValue = sessionStorage.getItem(inputElement.id);
             if (inputValue !== null) {
-              //Specifically tailored for the processor Select element
+              //The Processor select element has been disabled => Using ProcessorRealInput as a hidden form field
               if (inputElement.id === "processorRealInput") {
                 triggerInput("processor", inputValue);
-                if (inputValue.length !== 0) {
+                if (inputValue.length !== 0)
                   (document.getElementById("processor") as HTMLSelectElement).disabled = true;
-                }
               }
               //Other normal inputs elements
               else {
@@ -51,53 +42,21 @@ function ConfigurationPage() {
             }
           });
         }
-      })
+      }).catch(err => console.log(err));
   }, []);
-
   //Set the processor Name
   function processorSelected() {
-    var processorSelectElement = (document.getElementById("processor") as HTMLSelectElement);
-    var processorName: string;
-    // if (processorSelectElement.value.length !== 0) {
-    processorName = processorSelectElement.value;
-    setProcessor(processorName)
-    // }
-    //  else {
-    //   return;
-    // }
+    setProcessor((document.getElementById("processor") as HTMLSelectElement).value)
   }
-
-  /** Handle autosaving (currently using sessionStorage) */
+  //Handle autosaving with 500ms delay
   const autosave = debounce(saveData, 500);
-  //Save data in sessionStorage => May swicth to db/API/store later
-  function saveData() {
-    INPUTS.forEach((inputElement) => {
-      sessionStorage.setItem(inputElement.id, inputElement.value);
-    });
-  }
-  //500ms debounce to avoid bottleneck
-  function debounce(func: Function, wait: number) {
-    var timeout: any;
-    return function (this: Function) {
-      var context = this;
-      var args = arguments;
-      //The function to be called later
-      var later = function () {
-        func.apply(context, args);
-      };
-      //Reset the timeout obj per input
-      clearTimeout(timeout);
-      //Schedule the function
-      timeout = setTimeout(later, wait);
-    };
-  };
 
   /** Handling iframe communication */
   //Receiving messages (Parent -> Child)
   const messageHandler = (e: MessageEvent) => {
     if (e.origin.startsWith('http://localhost:8000')) {
       triggerInput("systemName", e.data);
-      //Remove the EventListener as the listener is added everytime the page is refreshed
+      //Remove the EventListener to prevent the listener from being added everytime a new message arrive
       window.removeEventListener('message', messageHandler);
     }
   }
@@ -111,7 +70,7 @@ function ConfigurationPage() {
     //window.parent.postMessage(systemName, 'http://localhost:8000');
   }, [systemName]);
 
-  /** Loading animation (waiting for the processors list to load from Firebase) */
+
   if (isLoading === true) {
     return <div className="col offset-md-6 mt-5">
       <Spinner animation="border" role="status">
@@ -119,193 +78,121 @@ function ConfigurationPage() {
       </Spinner>
     </div>
   }
-
   return (
     <div>
       <div className="pt-5">
         <form id="configurationForm" onInput={autosave}>
-          <div className="">
-            <div className="form-group row pt-3" >
-              <label
-                className="col-md-2 offset-sm-1 col-form-label"
-                htmlFor="systemName">
-                System Name:  <span className={styles.required}>*</span>
-              </label>
-              <div className="col-md-4 offset-sm-1">
-                <input
-                  className="form-control"
-                  type="text"
-                  id="systemName"
-                  name="systemName"
-                  required
-                  onInput={iframeCommunicationHandler}
-                  value={systemName}
-                />
-              </div>
-            </div>
-            <div className="form-group row pt-3" >
-              <label
-                className="col-md-2 offset-sm-1 col-form-label"
-                htmlFor="processor">
-                Processor: <span className={styles.required}>*</span>
-              </label>
-              <br />
-              <div className="col-md-4 offset-sm-1">
-                <select defaultValue={processor} className={`form-control form-select ${styles.select}`}
-                  id="processor"
-                  name="processor"
-                  required
-                  onInput={processorSelected}
-                  onChange={() => {
-                    render(
-                      <ProcessorConfirmModal processorName={processor} />
-                    )
-                  }}>
-                  <option value="">Please select a processor</option>
-                  {processorList}
-                  {/* <option value="First processor">First processor</option>
-                  <option value="Second processor">Second processor</option>
-                  <option value="Third processor">Third processor</option> */}
-                </select>
-                <input
-                  type="hidden"
-                  name="processorRealInput"
-                  id="processorRealInput"
-                  className="form-control"
-                  value={processor}
-                />
-              </div>
-            </div>
-          </div>
           <div className="form-group row pt-3" >
-            <label
-              className="col-md-2 offset-sm-1 col-form-label"
-              htmlFor="customerName">
-              Customer Name:{" "}
+            <label className="col-md-2 offset-sm-1 col-form-label"
+              htmlFor="systemName">
+              System Name:  <span className={styles.required}>*</span>
             </label>
-            <br />
-            <div className="col-md-4 offset-sm-1">
-              <input
-                className="form-control"
-                type="text"
-                id="customerName"
-                name="customerName"
-                placeholder="Customer Name"
-              />
-            </div>
-            <br />
-          </div>
-          <div className="form-group row pt-3" >
-            <label
-              className="col-md-2 offset-sm-1 col-form-label"
-              htmlFor="addressLine1">
-              Address Line 1:{" "}
-            </label>
-            <br />
-            <div className="col-md-4 offset-sm-1">
-              <input
-                className="form-control"
-                type="text"
-                id="addressLine1"
-                name="addressLine1"
-                placeholder="Address Line 1"
-              />
-            </div>
-            <br />
-          </div>
-          <div className="form-group row pt-3" >
-            <label
-              className=" col-md-2 offset-sm-1 col-form-label"
-              htmlFor="addressLine2">
-              Address Line 2:{" "}
-            </label>
-            <br />
-            <div className="col-md-4 offset-sm-1">
-              <input
-                className="form-control"
-                type="text"
-                id="addressLine2"
-                name="AddressLine2"
-                placeholder="Address Line 2"
-              />
-            </div>
-            <br />
-          </div>
-          <div className="form-group row pt-3" >
-            <label
-              className=" col-md-2 offset-sm-1 col-form-label"
-              htmlFor="city">
-              City:{" "}
-            </label>
-            <br />
             <div className="col-md-4 offset-sm-1">
               <input className="form-control"
-                type="text"
-                id="city"
-                name="City"
-                placeholder="City" />
+                type="text" id="systemName" name="systemName" required
+                onInput={iframeCommunicationHandler}
+                value={systemName} />
             </div>
-            <br />
           </div>
 
           <div className="form-group row pt-3" >
-            <label
-              className="col-md-2 offset-sm-1 col-form-label"
+            <label className="col-md-2 offset-sm-1 col-form-label"
+              htmlFor="processor">
+              Processor: <span className={styles.required}>*</span>
+            </label>
+            <div className="col-md-4 offset-sm-1">
+              <select className={`form-control form-select ${styles.select}`}
+                id="processor" name="processor" defaultValue={processor} required onInput={processorSelected}
+                onChange={() => { render(<ProcessorConfirmModal processorName={processor} />) }}>
+                <option value="">Please select a processor</option>
+                {processorList}
+              </select>
+              <input className="form-control"
+                type="hidden" name="processorRealInput" id="processorRealInput" value={processor} />
+            </div>
+          </div>
+
+          <div className="form-group row pt-3" >
+            <label className="col-md-2 offset-sm-1 col-form-label"
+              htmlFor="customerName">
+              Customer Name:{" "}
+            </label>
+            <div className="col-md-4 offset-sm-1">
+              <input className="form-control"
+                type="text" id="customerName" name="customerName" placeholder="Customer Name" />
+            </div>
+          </div>
+
+          <div className="form-group row pt-3" >
+            <label className="col-md-2 offset-sm-1 col-form-label"
+              htmlFor="addressLine1">
+              Address Line 1:{" "}
+            </label>
+            <div className="col-md-4 offset-sm-1">
+              <input className="form-control"
+                type="text" id="addressLine1" name="addressLine1" placeholder="Address Line 1" />
+            </div>
+          </div>
+
+          <div className="form-group row pt-3" >
+            <label className=" col-md-2 offset-sm-1 col-form-label"
+              htmlFor="addressLine2">
+              Address Line 2:{" "}
+            </label>
+            <div className="col-md-4 offset-sm-1">
+              <input className="form-control"
+                type="text" id="addressLine2" name="AddressLine2" placeholder="Address Line 2" />
+            </div>
+          </div>
+
+          <div className="form-group row pt-3" >
+            <label className=" col-md-2 offset-sm-1 col-form-label"
+              htmlFor="city">
+              City:{" "}
+            </label>
+            <div className="col-md-4 offset-sm-1">
+              <input className="form-control"
+                type="text" id="city" name="City" placeholder="City" />
+            </div>
+          </div>
+
+          <div className="form-group row pt-3" >
+            <label className="col-md-2 offset-sm-1 col-form-label"
               htmlFor="stateProvince">
               State Province:{" "}
             </label>
-            <br />
             <div className="col-md-4 offset-sm-1">
-              <input
-                className="form-control"
-                type="text"
-                id="stateProvince"
-                name="StateProvince"
-                placeholder="State\Province"
-              />
+              <input className="form-control"
+                type="text" id="stateProvince" name="StateProvince" placeholder="State\Province" />
             </div>
-            <br />
           </div>
+
           <div className="form-group row pt-3" >
-            <label
-              className="col-md-2 offset-sm-1 col-form-label"
+            <label className="col-md-2 offset-sm-1 col-form-label"
               htmlFor="zipCode">
               Zip/Postal Code:{" "}
             </label>
-            <br />
             <div className="col-md-4 offset-sm-1">
-              <input
-                className="form-control"
-                type="text"
-                id="zipCode"
-                name="zipCode"
-                placeholder="ZIP Code"
-              />
+              <input className="form-control"
+                type="text" id="zipCode" name="zipCode" placeholder="ZIP Code" />
             </div>
-            <br />
           </div>
+
           <div className="form-group row pt-3" >
-            <label
-              className="col-md-2 offset-sm-1 col-form-label"
+            <label className="col-md-2 offset-sm-1 col-form-label"
               htmlFor="countryRegion">
               Coutry Region:{" "}
             </label>
-            <br />
             <div className="col-md-4 offset-sm-1">
-              <input
-                className="form-control"
-                type="text"
-                id="countryRegion"
-                name="countryRegion"
-                placeholder="Country/Region"
-              />
+              <input className="form-control"
+                type="text" id="countryRegion" name="countryRegion" placeholder="Country/Region" />
               <small className="text-muted float-end mt-3">
                 <span className={styles.required}>*</span>
                 Required field
               </small>
             </div>
-            <br />
           </div>
+
         </form>
       </div>
     </div >
